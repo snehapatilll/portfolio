@@ -1,0 +1,94 @@
+export const meta = {
+  slug: "contract-parity-migration",
+  title: "Moving REST endpoints to Cloud Run with zero client changes",
+  hook: "Move where the code runs, or change what it returns. Not both at once.",
+  date: "2026-06-21",
+  readingMinutes: 4,
+};
+
+We moved a set of REST endpoints off a monolithic core onto microservices
+running on GCP Cloud Run. No client changed, because the request and response
+contracts did not.
+
+That constraint was the whole design, and it was tempting to break.
+
+## The temptation
+
+A migration is the one time everybody agrees the code will be touched, so it
+looks like the cheapest moment to fix the API's shape. The inconsistent field
+name, the response that returns a bare array where everything else returns an
+envelope, the endpoint that should have been two — all of it is right there,
+and you are already in the file.
+
+The reason not to is that the two changes have completely different risk
+profiles, and combining them destroys the property that makes one of them safe.
+
+**Moving where code runs is verifiable.** Same input, same output, different
+host. You can assert it mechanically: send a request to the old endpoint and
+the new one, compare the responses, and the test either passes or names the
+field that differs.
+
+**Changing what code returns is a coordination problem.** Every client has to
+move, in an order you control only partly, with a rollback story for each.
+
+Do both at once and you lose the oracle. When something misbehaves after the
+cutover there is no way to tell whether the service is wrong or the client is
+correctly consuming a deliberately different shape. The comparison that would
+have answered it no longer exists, because you changed the thing you would have
+compared against.
+
+## Parity as the test
+
+Holding parity gives you an executable definition of done: for every endpoint,
+the new service's response is byte-comparable to the old one for the same
+request.
+
+That is a test you can write before moving anything, and it covers the failure
+modes that actually occur in this kind of work — which are rarely dramatic:
+
+- a date serialised as an ISO string on one side and an epoch on the other
+- a number arriving as `"42"` because a different driver returns strings
+- a field present but `null` where it used to be absent entirely
+- key ordering changing, which matters more than it should to anything
+  comparing payloads
+
+None of these throw. They surface later as a client rendering `Invalid Date`,
+or a `=== undefined` check that silently stops matching.
+
+## Rollback per endpoint
+
+Parity also buys the thing you want most during a migration: the old path stays
+a valid destination. If an endpoint misbehaves on Cloud Run you route it back,
+and nothing downstream notices, because nothing downstream was ever told the
+difference.
+
+This turns a migration from one event into a sequence of small reversible ones.
+The unit of risk becomes a single endpoint rather than the cutover.
+
+## The API improvements still happen
+
+Nothing here argues the contracts were perfect. It argues for sequencing.
+
+Once the endpoints are running on Cloud Run and the old path is retired, the
+API shape is a normal piece of work: versioned, announced, with clients moved
+deliberately. It is slower. It is also the version where, if a client breaks,
+you know exactly which change broke it.
+
+## What I would tighten
+
+The parity checks were run against recorded request fixtures. That covers the
+shapes you thought of.
+
+A stronger version records real production traffic for a window and replays it
+against both implementations, because the payloads that break parity are
+usually the ones nobody wrote a fixture for — the record with a null middle
+name, the one with an empty collection, the one from 2019 with a field that
+stopped being written.
+
+## The general rule
+
+Separate changes that are mechanically verifiable from changes that need
+coordination, and ship them in that order.
+
+The migration is boring when you do. Boring is the goal: nobody should be able
+to tell from the outside that it happened.

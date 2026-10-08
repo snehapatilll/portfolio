@@ -1,0 +1,125 @@
+export const meta = {
+  slug: "deterministic-scoring",
+  title: "Why the fit score is computed in application code, not asked of the model",
+  hook: "A number from a model cannot be unit-tested. Classification can.",
+  date: "2026-09-14",
+  readingMinutes: 4,
+};
+
+The job assistant scores a resume against a job description. The obvious
+implementation is to send both to the model and ask for a number out of a
+hundred. I built it the other way round, and almost every test in the project
+exists because of that decision.
+
+## The problem with asking for a number
+
+A fit score returned directly by a language model has three properties that
+make it unusable, and they compound.
+
+It is **not reproducible**. The same resume and the same posting produce 78 one
+run and 85 the next. Nothing in the input changed, so there is nothing to point
+at when a user asks why.
+
+It is **not testable**. There is no assertion to write. `assert(score > 0 &&
+score <= 100)` passes for every possible bug, and anything tighter breaks the
+moment the model is updated. A test suite that cannot fail is not protecting
+anything.
+
+It is **not explainable**. The score arrives beside a list of matched and
+missing skills, and nothing guarantees the two agree. A resume can show as
+missing three critical requirements and still come back at 88, because the
+number and the list were two separate acts of generation.
+
+## What the model is actually good at
+
+The question "does this resume demonstrate TypeScript in production?" is a
+bounded judgement over two pieces of text. It has a small answer space and the
+evidence is right there. Models are reliable at that.
+
+"How good a fit is this candidate, as a percentage?" is not that question. It
+is an aggregation across a dozen sub-judgements, weighted by an importance
+ranking the model is also inventing, collapsed into one number with no working
+shown. Asking for it throws away the part that was reliable.
+
+So the model does only the first job. For each requirement it returns an
+importance — `critical`, `important` or `nice_to_have` — and whether the resume
+matches it, with the supporting text when it does.
+
+## The score is then arithmetic
+
+```ts
+const IMPORTANCE_WEIGHT = {
+  critical: 3,
+  important: 2,
+  nice_to_have: 1,
+};
+
+for (const skill of requiredSkills) {
+  const weight = IMPORTANCE_WEIGHT[skill.importance];
+  totalWeight += weight;
+  if (skill.matched) earnedWeight += weight;
+}
+
+const fitScore =
+  totalWeight === 0 ? 0 : Math.round((100 * earnedWeight) / totalWeight);
+```
+
+That is the whole scoring layer. It is a pure function from the classifications
+to a number, which changes what is possible downstream.
+
+The score now **reconciles with the lists shown next to it** by construction —
+they are computed from the same array, so they cannot disagree. It is
+**reproducible**: identical classifications give an identical number, every
+time. And it is **explainable** — the response carries a `scoreBreakdown` with
+`earnedWeight`, `totalWeight` and the weights themselves, so the interface can
+show its working rather than asserting a figure.
+
+The `totalWeight === 0` branch matters more than it looks. A posting with no
+identifiable requirements scores 0 rather than dividing by zero and rendering
+`NaN` where a number should be.
+
+## What it bought
+
+Thirteen unit tests cover the scoring arithmetic directly, and they run without
+touching the network — no API key, no quota, no flake. Edge cases that would be
+impossible to provoke through a model are trivial as fixtures: every
+requirement critical and unmatched, a single nice-to-have, an empty list.
+
+The remaining fifty-one tests cover the API with the model stubbed. The whole
+suite runs offline in seconds, which is the practical difference between tests
+that get run and tests that get skipped.
+
+## The boundary needs a schema
+
+Splitting the work this way puts weight on the classifications being
+well-formed, so they are validated with Zod before they reach the scoring code.
+
+This is not ceremony. Without it a missing `importance` field is `undefined`,
+`IMPORTANCE_WEIGHT[undefined]` is `undefined`, and `totalWeight` becomes `NaN`
+— which propagates silently to a user-visible score with no error anywhere.
+With a schema at the boundary it is a caught failure that can be retried, which
+is also what makes retry-with-backoff on transient 429 and 503 responses
+useful: there is something definite to retry.
+
+Model output is untrusted input that happens to usually be well-formed.
+
+## What I would do differently
+
+The weights are constants in the source. They should be a versioned config
+stored alongside each saved result, because tuning them silently changes the
+meaning of every score already in a user's history. A score from March and a
+score from September are currently assumed comparable, and after a weight
+change they are not.
+
+I would also cache classifications per requirement. Scoring against a similar
+posting re-asks the model questions it has already answered, which is the
+easiest quota saving available and I have not taken it.
+
+## The general shape
+
+Use the model for the judgement that is genuinely linguistic. Keep the
+aggregation, the thresholds and anything a user will see as a number in code
+you can test.
+
+The split is not about trusting the model less. It is about putting the
+deterministic part where determinism is free.

@@ -1,0 +1,106 @@
+export const meta = {
+  slug: "strapi-flattening",
+  title: "Flattening a nested CMS model to fix builds at scale — without rewriting components",
+  hook: "The components were not the problem, so they were not the thing to change.",
+  date: "2026-08-02",
+  readingMinutes: 5,
+};
+
+An insurance self-help portal for a major Indian bank stopped building. The
+content models in Strapi had grown deeply nested — components inside components
+inside dynamic zones — and past a certain content volume the build no longer
+completed.
+
+This is the natural way to model a page when you start. It is also the thing
+that quietly becomes expensive as the catalogue grows, because the cost is not
+in any one page but in the shape of the query needed to assemble all of them.
+
+## Two constraints, both hard
+
+Content editors at the bank could not be asked to re-enter their content. There
+was a lot of it, it was live, and migration work on the client's side was not
+something a build failure justified asking for.
+
+The frontend was a large Next.js application whose components consumed the
+nested shape throughout. Rewriting them would have turned a contained CMS
+problem into a regression surface spanning the whole portal — and under
+production pressure, with a build that was already failing.
+
+So the fix had to change the storage shape without changing either the content
+or the components.
+
+## Flatten the model, rebuild the shape at the boundary
+
+The content models were flattened: nested structures became dot-separated
+fields, so what the CMS had to assemble at build time became wide and shallow
+rather than deep.
+
+That alone would have broken every component. So the second half is a parsing
+layer on the frontend that reads the flat payload and reconstructs the nested
+object shape the components already expect.
+
+```
+Strapi (flat)            parsing layer              components (nested)
+hero.title          ─►   { hero: { title,      ─►   unchanged
+hero.subtitle            subtitle, cta: {...} } }
+hero.cta.label
+```
+
+Net effect: the build gets a shape it can handle, and not one component had to
+change.
+
+## Why not just redesign the schema properly
+
+A clean, purpose-built schema around how the portal is actually structured
+today would have been the better model. It was the wrong move under the
+constraint, for a reason worth being precise about.
+
+Dot-separated keys preserve a **mechanical, inspectable relationship** to the
+original structure. `hero.cta.label` maps to exactly one place in the old
+nested model, so the content migration could be verified key by key rather than
+trusted. A redesigned schema would have required judgement calls about where
+each piece of existing content belongs — judgement calls made at speed, against
+live content, during an incident.
+
+The better schema is worth doing. It is worth doing as deliberate work with
+time to verify it, not as the fix to a failing build.
+
+## Why the reconstruction is one named layer
+
+The reconstruction could have been inlined wherever a page fetched its data.
+That is how a temporary fix becomes permanent and unreviewable — scattered
+across a dozen call sites, each slightly different, none of them obviously the
+same mechanism.
+
+One layer with an explicit input and output shape means the next person can see
+precisely what transformation is happening, and can delete it in one step if
+the content models are ever redesigned properly. A shim you can find is a shim
+you can remove.
+
+## The thing I would not leave implicit again
+
+The parsing layer was correct, but it was correct **by inspection**. Nothing
+enforced that its output still matched what components expected.
+
+That is fine the day you write it and progressively less fine afterwards. A
+future content-model change surfaces as an undefined field on a rendered page —
+possibly in production, possibly on a page nobody looks at often — rather than
+as a failure at build time.
+
+What it needed was a build-time assertion that the parser's output satisfies the
+shape the components consume. A schema over the reconstructed object, checked
+during the build, turns a silent rendering bug into a named failure with a
+message pointing at the field that moved.
+
+I have carried that forward: validate at the boundary where a shape is
+reconstructed, not only where it is first received.
+
+## What generalises
+
+When something breaks at scale, the instinct is to fix it where it surfaced.
+The build was failing, so the build looked like the problem; the components
+rendered the data, so the components looked involved.
+
+Neither was. The problem was the shape of the data at rest, and the smallest
+change that fixed it was one layer wide — which is also the change that could
+be reviewed, reasoned about, and reversed.
