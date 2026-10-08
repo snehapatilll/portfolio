@@ -70,7 +70,7 @@ export const profile = profileSchema.parse({
         "Tenants ranged from 20 facilities to 162, so coverage views and scoping had to hold at both ends.",
     },
     {
-      value: "80–100",
+      value: "50+",
       label: "users per organisation",
       basis:
         "Across four roles, each seeing a different view of the same record.",
