@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+/*
+ * Theme: "instrument panel"
+ * Dark is the default; .light is a real remap, not an inversion.
+ * Every colour goes through a token, so components never branch on theme.
+ */
+
+:root {
+  --base: #0b0c0e;
+  --surface: #15181c;
+  --raised: #1c2026;
+  --border: #262b33;
+  --border-strong: #363d47;
+  --text: #e8eaed;
+  --muted: #98a1ad;
+  --faint: #6b7480;
+  --accent: #f5a524;
+  --accent-contrast: #0b0c0e;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --fail: #f85149;
+  --grid-line: rgba(232, 234, 237, 0.06);
+  color-scheme: dark;
+}
+
+/*
+ * Light mode is a soft off-white rather than near-paper white — #fcfcfd was
+ * bright enough to glare. Every value below was checked for contrast against
+ * both --base and --surface; `faint` in particular used to sit at 3.2:1, which
+ * failed WCAG AA for the small supporting text it is used on.
+ */
+.light {
+  --base: #f2f3f5;
+  --surface: #e9ebee;
+  --raised: #dfe2e7;
+  --border: #d2d7dd;
+  --border-strong: #b6bdc6;
+  --text: #16191d;         /* 15.9:1 on base */
+  --muted: #59626d;        /*  5.6:1 on base,  5.2:1 on surface */
+  --faint: #606874;        /*  5.1:1 on base,  4.7:1 on surface */
+  --accent: #8f5c08;       /*  5.1:1 on base,  4.8:1 on surface */
+  --accent-contrast: #ffffff;
+  --ok: #156f2f;
+  --warn: #7d5800;
+  --fail: #b7202b;
+  --grid-line: rgba(22, 25, 29, 0.08);
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-fail: var(--fail);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--base);
+    color: var(--text);
+    font-family: var(--font-sans), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Amber focus ring everywhere, never removed. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+}
+
+@utility eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Blueprint texture for section breaks. Decorative only. */
+@utility blueprint {
+  background-image: linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
