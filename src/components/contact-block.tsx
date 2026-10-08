@@ -7,6 +7,7 @@ import {
   Mail,
 } from "lucide-react";
 import { profile } from "@/content/profile";
+import { RESUME_FILE, RESUME_PATH } from "@/lib/resume";
 
 const links = [
   {
@@ -31,7 +32,7 @@ const links = [
     external: true,
   },
   {
-    href: "/resume.pdf",
+    href: RESUME_PATH,
     label: "Résumé",
     value: "PDF",
     Icon: ArrowDownToLine,
@@ -57,7 +58,7 @@ export function ContactBlock() {
               {...(external
                 ? { target: "_blank", rel: "noreferrer" }
                 : label === "Résumé"
-                  ? { download: true }
+                  ? { download: RESUME_FILE }
                   : {})}
               className="group flex items-center gap-3 p-4 transition-colors hover:bg-raised"
             >

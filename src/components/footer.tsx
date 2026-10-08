@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { profile } from "@/content/profile";
+import { RESUME_FILE, RESUME_PATH } from "@/lib/resume";
 
 export function Footer() {
   return (
@@ -55,7 +56,8 @@ export function Footer() {
           </li>
           <li>
             <Link
-              href="/resume.pdf"
+              href={RESUME_PATH}
+              download={RESUME_FILE}
               className="text-muted transition-colors hover:text-accent"
             >
               Résumé

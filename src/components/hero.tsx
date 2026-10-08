@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDownToLine, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { profile } from "@/content/profile";
+import { RESUME_FILE, RESUME_PATH } from "@/lib/resume";
 
 export function Hero() {
   return (
@@ -34,7 +35,7 @@ export function Hero() {
             <Link href="/work">Case studies</Link>
           </Button>
           <Button asChild variant="ghost">
-            <a href="/resume.pdf" download>
+            <a href={RESUME_PATH} download={RESUME_FILE}>
               Résumé
               <ArrowDownToLine className="size-3.5" aria-hidden />
             </a>

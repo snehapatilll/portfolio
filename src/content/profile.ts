@@ -22,8 +22,11 @@ const yearsShipping = "2.5 yrs";
 
 export const profile = profileSchema.parse({
   name: "Sneha Patil",
+  // Leads with the breadth, not the domain. "Multi-tenant B2B SaaS" as the
+  // first thing read made this look like a niche specialism; it belongs in the
+  // summary below as evidence, not in the headline as a label.
   headline:
-    "I build multi-tenant B2B SaaS — the interface, the services, and the data model under both.",
+    "I build web applications end to end — the interface, the services behind it, and the data model under both.",
   location: "Bangalore, India",
   email: "snehapatil112001@gmail.com",
   links: {

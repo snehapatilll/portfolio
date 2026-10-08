@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { RESUME_PATH } from "../src/lib/resume";
 
 /**
  * Every test here guards a bug this project has actually shipped at least once.
@@ -231,7 +232,7 @@ test.describe("content integrity", () => {
 
   test("resume is downloadable", async ({ page, request }) => {
     await page.goto("/about");
-    const response = await request.get("/resume.pdf");
+    const response = await request.get(RESUME_PATH);
     expect(response.status()).toBe(200);
     expect(response.headers()["content-type"]).toContain("pdf");
   });
